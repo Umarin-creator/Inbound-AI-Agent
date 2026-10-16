@@ -653,6 +653,40 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 .btn-process:hover { background: var(--primary-dark); }
 
+/* Board option chips (warehouse selector, etc.) */
+.board-opts {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+.board-opts-label {
+  width: 100%;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.board-opt {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
+  background: var(--primary-light);
+  border: 1.5px solid var(--primary);
+  border-radius: 20px;
+  color: var(--primary-dark);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+.board-opt:hover { background: var(--primary); color: #fff; }
+.board-opt:disabled { background: var(--border-light); border-color: var(--border); color: var(--text-3); cursor: not-allowed; }
+.board-opt .opt-key {
+  font-weight: 700; font-size: 11px;
+  background: var(--primary); color: #fff;
+  border-radius: 4px; padding: 1px 5px;
+  transition: background .15s;
+}
+.board-opt:hover .opt-key { background: rgba(255,255,255,.3); }
+
 .board-loading {
   display: flex; align-items: center; gap: 10px;
   padding: 16px;
@@ -1405,13 +1439,14 @@ function switchTab(tab) {
   document.getElementById('boardView').style.display = isChat ? 'none' : '';
 }
 
-async function boardQuery(message) {
+async function boardQuery(message, contextId = null) {
   if (!STATE.endpoint) { showToast('Configura el endpoint primero'); throw new Error('No endpoint'); }
   const msgId = crypto.randomUUID();
   const params = {
     message: { messageId: msgId, role: 'user', parts: [{ kind: 'text', text: message }] },
     metadata: {}
   };
+  if (contextId) params.contextId = contextId;
   const res = await fetch(STATE.endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1423,7 +1458,7 @@ async function boardQuery(message) {
   if (json.error) throw new Error(json.error.message || 'Error del agente');
   let text = '';
   json.result?.artifacts?.forEach(a => a.parts?.forEach(p => { if (p.kind === 'text') text += p.text; }));
-  return { text: text || '(Sin respuesta)', contextId: json.result?.contextId };
+  return { text: text || '(Sin respuesta)', contextId: json.result?.contextId || contextId };
 }
 
 async function lookupTU() {
@@ -1432,12 +1467,12 @@ async function lookupTU() {
   const btn = document.getElementById('tuBtn');
   const out = document.getElementById('tuResults');
   btn.disabled = true;
-  out.innerHTML = '<div class="board-loading"><div class="typing"><span></span><span></span><span></span></div>&nbsp; Consultando agente EWM...</div>';
+  out.innerHTML = loadingHtml();
   try {
-    const { text } = await boardQuery('Show me the details of transport unit ' + number);
-    renderBoardCard(out, 'TU', number, text);
+    const { text, contextId } = await boardQuery('Show me the details of transport unit ' + number);
+    renderBoardCard(out, 'TU', number, text, contextId);
   } catch(e) {
-    out.innerHTML = `<div class="board-card"><div class="board-card-body" style="color:var(--error)">⚠ ${escHtml(e.message)}</div></div>`;
+    out.innerHTML = boardErrorHtml(e.message);
   }
   btn.disabled = false;
 }
@@ -1448,27 +1483,48 @@ async function lookupDelivery() {
   const btn = document.getElementById('delivBtn');
   const out = document.getElementById('delivResults');
   btn.disabled = true;
-  out.innerHTML = '<div class="board-loading"><div class="typing"><span></span><span></span><span></span></div>&nbsp; Consultando agente EWM...</div>';
+  out.innerHTML = loadingHtml();
   try {
-    const { text } = await boardQuery('What is the current status of inbound delivery ' + number + '? Provide full details.');
-    renderBoardCard(out, 'Delivery', number, text);
+    const { text, contextId } = await boardQuery('What is the current status of inbound delivery ' + number + '? Provide full details.');
+    renderBoardCard(out, 'Delivery', number, text, contextId);
   } catch(e) {
-    out.innerHTML = `<div class="board-card"><div class="board-card-body" style="color:var(--error)">⚠ ${escHtml(e.message)}</div></div>`;
+    out.innerHTML = boardErrorHtml(e.message);
   }
   btn.disabled = false;
 }
 
-function renderBoardCard(container, type, number, responseText) {
-  const lc = responseText.toLowerCase();
+async function continueBoard(cardEl, chosenLabel, contextId, type, number) {
+  // Disable all option buttons while waiting
+  cardEl.querySelectorAll('.board-opt').forEach(b => b.disabled = true);
+  const bodyEl = cardEl.querySelector('.board-card-body');
+  bodyEl.innerHTML += `<br><div class="board-loading" style="margin-top:8px;padding:10px 12px">${loadingHtml(true)} Procesando: <strong>${escHtml(chosenLabel)}</strong>…</div>`;
+  try {
+    const { text, contextId: newCtx } = await boardQuery(chosenLabel, contextId);
+    const container = cardEl.parentElement;
+    renderBoardCard(container, type, number, text, newCtx || contextId);
+  } catch(e) {
+    const container = cardEl.parentElement;
+    container.innerHTML = boardErrorHtml(e.message);
+  }
+}
+
+function renderBoardCard(container, type, number, responseText, contextId) {
+  const { clean, options } = parseEwmOptions(responseText);
+
+  const lc = clean.toLowerCase();
   let badge = 'badge-unknown', badgeLabel = 'Consultado';
-  if (lc.includes('not found') || lc.includes('no encontr') || lc.includes('error') || lc.includes('404')) {
+  if (lc.includes('not found') || lc.includes('no encontr') || lc.includes('404') ||
+      (lc.includes('error') && !lc.includes('warehouse'))) {
     badge = 'badge-error'; badgeLabel = 'No encontrado';
   } else if (lc.includes('goods receipt posted') || lc.includes('recepción completada') || lc.includes('putaway')) {
     badge = 'badge-ready'; badgeLabel = 'GR Completado';
   } else if (lc.includes('ready') || lc.includes('listo') || lc.includes('can be processed') || lc.includes('puede procesarse')) {
     badge = 'badge-ready'; badgeLabel = 'Listo para recibir';
-  } else if (lc.includes('open') || lc.includes('abierta') || lc.includes('pendiente') || lc.includes('in transit') || lc.includes('en tránsito')) {
+  } else if (lc.includes('open') || lc.includes('abierta') || lc.includes('pendiente') ||
+             lc.includes('in transit') || lc.includes('en tránsito')) {
     badge = 'badge-open'; badgeLabel = 'Abierta / En tránsito';
+  } else if (options.length) {
+    badge = 'badge-unknown'; badgeLabel = 'Acción requerida';
   }
 
   const tuIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`;
@@ -1476,18 +1532,33 @@ function renderBoardCard(container, type, number, responseText) {
   const icon = type === 'TU' ? tuIcon : delivIcon;
   const title = type === 'TU' ? 'Transport Unit' : 'Entrega de entrada';
 
+  const ctxJson  = JSON.stringify(contextId);
+  const typeJson = JSON.stringify(type);
+  const numJson  = JSON.stringify(number);
+
+  const optionsHtml = options.length ? `
+    <div class="board-opts">
+      <div class="board-opts-label">Selecciona una opción</div>
+      ${options.map(o => `
+        <button class="board-opt"
+          onclick="continueBoard(this.closest('.board-card'), ${JSON.stringify(o.label)}, ${ctxJson}, ${typeJson}, ${numJson})">
+          <span class="opt-key">${escHtml(o.key)}</span>${escHtml(o.label)}
+        </button>`).join('')}
+    </div>` : `
+    <div class="board-card-actions">
+      <button class="btn-process" onclick="processInChat(${numJson}, ${typeJson})">
+        Procesar en Chat →
+      </button>
+    </div>`;
+
   container.innerHTML = `
     <div class="board-card">
       <div class="board-card-header">
         <div class="board-card-title">${icon} ${title} <span style="font-family:monospace;font-size:13px">${escHtml(number)}</span></div>
         <span class="card-badge ${badge}">${badgeLabel}</span>
       </div>
-      <div class="board-card-body">${formatText(responseText)}</div>
-      <div class="board-card-actions">
-        <button class="btn-process" onclick="processInChat(${JSON.stringify(number)}, ${JSON.stringify(type)})">
-          Procesar en Chat →
-        </button>
-      </div>
+      <div class="board-card-body">${formatText(clean)}</div>
+      ${optionsHtml}
     </div>`;
 }
 
@@ -1502,6 +1573,14 @@ function processInChat(number, type) {
   if (!STATE.sessionId) startSession();
   const wp = document.getElementById('welcomePanel');
   if (wp) wp.style.display = 'none';
+}
+
+function loadingHtml(inline = false) {
+  const style = inline ? 'display:inline-flex;border:none;padding:0;background:none;' : '';
+  return `<div class="board-loading" style="${style}"><div class="typing"><span></span><span></span><span></span></div>&nbsp; Consultando agente EWM…</div>`;
+}
+function boardErrorHtml(msg) {
+  return `<div class="board-card"><div class="board-card-body" style="color:var(--error)">⚠ ${escHtml(msg)}</div></div>`;
 }
 
 </script>
