@@ -1057,7 +1057,7 @@ function populateAgentPanel(card) {
   document.getElementById('agentDot').className = 'dot ok';
   document.getElementById('agentStatusText').textContent = 'En ejecución';
   document.getElementById('agentProto').textContent = card.protocolVersion || '—';
-  document.getElementById('agentModel').textContent = 'claude-sonnet-4-5';
+  document.getElementById('agentModel').textContent = 'anthropic--claude-4.8-opus';
   document.getElementById('agentStream').textContent = card.capabilities?.streaming ? '✓' : '✗';
   document.getElementById('agentPush').textContent = card.capabilities?.pushNotifications ? '✓' : '✗';
 
