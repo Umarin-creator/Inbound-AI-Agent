@@ -1,0 +1,278 @@
+{
+  "servers": {
+    "ewm-actions": {
+      "tools": {
+        "ewm_read_transport_unit": {
+          "description": "Read Transport Unit and list of associated inbound deliveries from EWM",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "tuIdentifier": {
+                "type": "string",
+                "description": "Transport Unit identifier (e.g. truck plate or container ID)"
+              }
+            },
+            "required": ["tuIdentifier"]
+          },
+          "mock_response": {
+            "tuIdentifier": "TU-12345",
+            "status": "ARRIVED",
+            "dockDoor": "GD01",
+            "deliveries": [
+              {
+                "deliveryNumber": "1800012345",
+                "vendorName": "ACME Supplies GmbH",
+                "totalItems": 3
+              }
+            ]
+          }
+        },
+        "ewm_read_inbound_delivery": {
+          "description": "Read full status of an inbound delivery from EWM including items, HUs, and open Warehouse Tasks",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "deliveryNumber": {
+                "type": "string",
+                "description": "EWM Inbound Delivery number"
+              }
+            },
+            "required": ["deliveryNumber"]
+          },
+          "mock_response": {
+            "deliveryNumber": "1800012345",
+            "status": "OPEN",
+            "goodsReceiptPosted": false,
+            "warehouseNumber": "EW1",
+            "items": [
+              {
+                "itemNumber": "10",
+                "material": "MAT-001",
+                "description": "Widget A",
+                "quantityOrdered": 100,
+                "quantityReceived": 0,
+                "unit": "EA",
+                "targetBin": "BIN-A-01-01"
+              }
+            ],
+            "openWarehouseTasks": []
+          }
+        },
+        "ewm_post_goods_receipt": {
+          "description": "Post Goods Receipt for an inbound delivery — requires operator approval AG-01",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "deliveryNumber": {
+                "type": "string",
+                "description": "EWM Inbound Delivery number"
+              },
+              "postingDate": {
+                "type": "string",
+                "description": "Posting date in YYYY-MM-DD format (optional, defaults to today)"
+              }
+            },
+            "required": ["deliveryNumber"]
+          },
+          "mock_response": {
+            "success": true,
+            "grDocument": "5000012345",
+            "grDocumentYear": "2026",
+            "postingDate": "2026-10-14",
+            "message": "Goods Receipt posted successfully"
+          }
+        },
+        "ewm_create_putaway_tasks": {
+          "description": "Create Warehouse Tasks for putaway using EWM putaway strategy — requires operator approval AG-02",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "deliveryNumber": {
+                "type": "string",
+                "description": "EWM Inbound Delivery number"
+              }
+            },
+            "required": ["deliveryNumber"]
+          },
+          "mock_response": {
+            "success": true,
+            "warehouseTasks": [
+              {
+                "warehouseTask": "WT-001",
+                "material": "MAT-001",
+                "quantity": 100,
+                "unit": "EA",
+                "sourceBin": "GR-ZONE-01",
+                "targetBin": "BIN-A-01-01"
+              }
+            ],
+            "message": "1 Warehouse Task created"
+          }
+        },
+        "ewm_validate_scan": {
+          "description": "Validate a barcode scan against the expected bin, material, or HU for the current task step",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "warehouseTask": {
+                "type": "string",
+                "description": "Warehouse Task identifier"
+              },
+              "scannedValue": {
+                "type": "string",
+                "description": "The barcode value scanned by the operator"
+              },
+              "scanType": {
+                "type": "string",
+                "description": "Type of scan: MATERIAL, BIN, HU, or DELIVERY"
+              }
+            },
+            "required": ["warehouseTask", "scannedValue", "scanType"]
+          },
+          "mock_response": {
+            "valid": true,
+            "warehouseTask": "WT-001",
+            "scannedValue": "BIN-A-01-01",
+            "expected": "BIN-A-01-01",
+            "message": "Scan validated successfully"
+          }
+        },
+        "ewm_confirm_warehouse_task": {
+          "description": "Confirm a Warehouse Task in EWM — requires operator approval AG-03 (full) or AG-04 (partial)",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "warehouseTask": {
+                "type": "string",
+                "description": "Warehouse Task identifier"
+              },
+              "actualQuantity": {
+                "type": "number",
+                "description": "Actual quantity confirmed (optional, defaults to planned quantity)"
+              },
+              "actualBin": {
+                "type": "string",
+                "description": "Actual bin used (optional, defaults to target bin)"
+              }
+            },
+            "required": ["warehouseTask"]
+          },
+          "mock_response": {
+            "success": true,
+            "warehouseTask": "WT-001",
+            "confirmedQuantity": 100,
+            "confirmedBin": "BIN-A-01-01",
+            "message": "Warehouse Task confirmed successfully"
+          }
+        },
+        "ewm_analyse_exception": {
+          "description": "Analyse an exception and return ranked resolution options with plain language cause",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "errorCode": {
+                "type": "string",
+                "description": "SAP EWM error code or exception type"
+              },
+              "errorMessage": {
+                "type": "string",
+                "description": "Raw error message from EWM"
+              },
+              "context": {
+                "type": "string",
+                "description": "Current process context (delivery, warehouse task, etc.)"
+              }
+            },
+            "required": ["errorCode", "errorMessage"]
+          },
+          "mock_response": {
+            "exceptionType": "EX-002",
+            "plainLanguageCause": "The target bin BIN-A-01-01 is currently marked as full.",
+            "resolutionOptions": [
+              {
+                "rank": 1,
+                "action": "ALTERNATIVE_BIN",
+                "description": "Use alternative bin BIN-A-01-02 (same zone, 40% capacity)",
+                "reversible": true
+              },
+              {
+                "rank": 2,
+                "action": "CHECK_BIN_STATUS",
+                "description": "Verify and update bin status in EWM",
+                "reversible": true
+              },
+              {
+                "rank": 3,
+                "action": "ESCALATE",
+                "description": "Escalate to supervisor for manual bin assignment",
+                "reversible": false
+              }
+            ]
+          }
+        },
+        "ewm_execute_exception_resolution": {
+          "description": "Execute an operator-approved exception resolution — requires operator approval AG-07",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "exceptionType": {
+                "type": "string",
+                "description": "Exception type code (e.g. EX-002)"
+              },
+              "action": {
+                "type": "string",
+                "description": "Resolution action to execute"
+              },
+              "warehouseTask": {
+                "type": "string",
+                "description": "Warehouse Task identifier (if applicable)"
+              },
+              "newBin": {
+                "type": "string",
+                "description": "Alternative bin (for ALTERNATIVE_BIN action)"
+              }
+            },
+            "required": ["exceptionType", "action"]
+          },
+          "mock_response": {
+            "success": true,
+            "action": "ALTERNATIVE_BIN",
+            "newTargetBin": "BIN-A-01-02",
+            "message": "Exception resolved: Warehouse Task redirected to BIN-A-01-02"
+          }
+        },
+        "ewm_escalate_to_supervisor": {
+          "description": "Escalate an unresolved exception to the warehouse supervisor — requires operator approval AG-08",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "deliveryNumber": {
+                "type": "string",
+                "description": "EWM Inbound Delivery number"
+              },
+              "exceptionType": {
+                "type": "string",
+                "description": "Exception type code"
+              },
+              "reason": {
+                "type": "string",
+                "description": "Plain language reason for escalation"
+              },
+              "operatorId": {
+                "type": "string",
+                "description": "Operator user ID"
+              }
+            },
+            "required": ["deliveryNumber", "exceptionType", "reason"]
+          },
+          "mock_response": {
+            "success": true,
+            "escalationId": "ESC-2026-001",
+            "supervisorNotified": true,
+            "message": "Supervisor has been notified. Escalation ID: ESC-2026-001"
+          }
+        }
+      }
+    }
+  }
+}

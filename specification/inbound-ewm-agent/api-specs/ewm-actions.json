@@ -1,0 +1,532 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "EWM Inbound Actions API",
+    "description": "SAP EWM actions for inbound warehouse execution. All endpoints call the existing EWM standard business logic, BAdI implementations, and Z-enhancements via BTP Connectivity.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://ewm-inbound-actions.cfapps.us10.hana.ondemand.com/api/v1",
+      "description": "EWM Action Library — BTP Cloud Foundry"
+    }
+  ],
+  "paths": {
+    "/transport-units/{tuIdentifier}": {
+      "get": {
+        "operationId": "ewm_read_transport_unit",
+        "summary": "Read Transport Unit and associated inbound deliveries",
+        "description": "Reads a Transport Unit from SAP EWM by TU number, truck plate, or dock door barcode. Returns TU header, assigned dock door, and the complete list of associated inbound deliveries. Use when operator selects the TU entry path.",
+        "parameters": [
+          {
+            "name": "tuIdentifier",
+            "in": "path",
+            "required": true,
+            "description": "Transport Unit number, truck plate, or SSCC barcode",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "warehouseNumber",
+            "in": "query",
+            "required": true,
+            "description": "EWM warehouse number (4 characters)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "dockDoor",
+            "in": "query",
+            "required": false,
+            "description": "Dock door number if operator scanned a door barcode",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TU data with associated delivery list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransportUnitResponse" }
+              }
+            }
+          },
+          "404": { "description": "TU not found" }
+        }
+      }
+    },
+    "/deliveries/{deliveryNumber}": {
+      "get": {
+        "operationId": "ewm_read_inbound_delivery",
+        "summary": "Read inbound delivery full status from EWM",
+        "description": "Reads the complete current state of an inbound delivery: header, items, HUs, EWM processing status, open Warehouse Orders and Tasks, and any open exceptions. Use at session start (Delivery path) or after TU resolution. Also use for status queries.",
+        "parameters": [
+          {
+            "name": "deliveryNumber",
+            "in": "path",
+            "required": true,
+            "description": "10-digit EWM inbound delivery number",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "warehouseNumber",
+            "in": "query",
+            "required": true,
+            "description": "EWM warehouse number",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full delivery data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InboundDeliveryResponse" }
+              }
+            }
+          },
+          "404": { "description": "Delivery not found" }
+        }
+      }
+    },
+    "/deliveries/{deliveryNumber}/goods-receipt": {
+      "post": {
+        "operationId": "ewm_post_goods_receipt",
+        "summary": "Post Goods Receipt for an inbound delivery",
+        "description": "Posts Goods Receipt in SAP EWM. Executes all active BAdIs and Z-enhancements for the GR posting event. REQUIRES operator approval (AG-01) — never call without confirmed Confirmation Card. Returns GR Material Document number.",
+        "parameters": [
+          {
+            "name": "deliveryNumber",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GoodsReceiptRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GR posted successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GoodsReceiptResponse" }
+              }
+            }
+          },
+          "400": { "description": "GR posting failed — see error details" }
+        }
+      }
+    },
+    "/deliveries/{deliveryNumber}/putaway-tasks": {
+      "post": {
+        "operationId": "ewm_create_putaway_tasks",
+        "summary": "Create Warehouse Tasks for putaway after Goods Receipt",
+        "description": "Creates putaway Warehouse Tasks applying all active EWM putaway strategies, storage type search sequences, and capacity checks. REQUIRES operator approval (AG-02). Returns list of created WTs.",
+        "parameters": [
+          {
+            "name": "deliveryNumber",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreatePutawayTasksRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Warehouse Tasks created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PutawayTasksResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/warehouse-tasks/{warehouseTask}/validate-scan": {
+      "post": {
+        "operationId": "ewm_validate_scan",
+        "summary": "Validate a barcode scan against the current task step",
+        "description": "Validates a barcode scan result against the expected object for the current WT step. Use for bin, material, HU, and delivery scans. Returns MATCH, MISMATCH, or NOT_FOUND with expected vs. actual values.",
+        "parameters": [
+          {
+            "name": "warehouseTask",
+            "in": "path",
+            "required": false,
+            "description": "Current WT number (omit if not yet in WT step)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ValidateScanRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scan validation result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ValidateScanResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/warehouse-tasks/{warehouseTask}/confirm": {
+      "post": {
+        "operationId": "ewm_confirm_warehouse_task",
+        "summary": "Confirm a Warehouse Task (putaway step)",
+        "description": "Confirms a WT in SAP EWM executing all active BAdI enhancements including bin capacity updates and stock posting. REQUIRES operator approval — AG-03 for full quantity, AG-04 for partial. Returns confirmation status and next task if available.",
+        "parameters": [
+          {
+            "name": "warehouseTask",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ConfirmWarehouseTaskRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task confirmed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConfirmWarehouseTaskResponse" }
+              }
+            }
+          },
+          "400": { "description": "Confirmation failed — see error details" }
+        }
+      }
+    },
+    "/exceptions/analyse": {
+      "post": {
+        "operationId": "ewm_analyse_exception",
+        "summary": "Analyse an exception and return ranked resolution options",
+        "description": "Analyses an exception in the context of the current inbound process. Classifies against the known catalogue (EX-001 to EX-010), determines probable cause, and returns ranked resolution options with feasibility and reversibility. Call immediately when any exception is detected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AnalyseExceptionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exception analysis with resolution options",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnalyseExceptionResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exceptions/resolve": {
+      "post": {
+        "operationId": "ewm_execute_exception_resolution",
+        "summary": "Execute an operator-approved exception resolution",
+        "description": "Executes the resolution option selected and approved by the operator. REQUIRES operator approval (AG-07). Returns execution result, updated process state, and next recommended action.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExecuteResolutionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolution executed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExecuteResolutionResponse" }
+              }
+            }
+          },
+          "400": { "description": "Resolution failed — see error details" }
+        }
+      }
+    },
+    "/escalations": {
+      "post": {
+        "operationId": "ewm_escalate_to_supervisor",
+        "summary": "Escalate an unresolved exception to the warehouse supervisor",
+        "description": "Creates a structured escalation record in EWM, notifies the supervisor via the configured channel, and logs the complete session context. REQUIRES operator approval (AG-08) unless called after two automatic failed resolution attempts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EscalationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Escalation created and supervisor notified",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EscalationResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TransportUnitResponse": {
+        "type": "object",
+        "properties": {
+          "tuNumber": { "type": "string" },
+          "dockDoor": { "type": "string" },
+          "arrivalTime": { "type": "string", "format": "date-time" },
+          "deliveries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "deliveryNumber": { "type": "string" },
+                "supplierName": { "type": "string" },
+                "itemCount": { "type": "integer" },
+                "totalQuantity": { "type": "number" },
+                "status": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "InboundDeliveryResponse": {
+        "type": "object",
+        "properties": {
+          "deliveryNumber": { "type": "string" },
+          "supplierName": { "type": "string" },
+          "purchaseOrder": { "type": "string" },
+          "warehouseNumber": { "type": "string" },
+          "ewmStatus": { "type": "string", "enum": ["READY_FOR_GR", "GR_POSTED", "PUTAWAY_IN_PROGRESS", "PUTAWAY_COMPLETE", "COMPLETED"] },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "itemNumber": { "type": "string" },
+                "materialNumber": { "type": "string" },
+                "materialDescription": { "type": "string" },
+                "quantityExpected": { "type": "number" },
+                "quantityReceived": { "type": "number" },
+                "unit": { "type": "string" }
+              }
+            }
+          },
+          "warehouseOrders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "woNumber": { "type": "string" },
+                "status": { "type": "string" },
+                "openTasks": { "type": "integer" },
+                "confirmedTasks": { "type": "integer" }
+              }
+            }
+          }
+        }
+      },
+      "GoodsReceiptRequest": {
+        "type": "object",
+        "required": ["warehouseNumber", "postingDate", "operatorId"],
+        "properties": {
+          "warehouseNumber": { "type": "string" },
+          "postingDate": { "type": "string", "format": "date", "description": "Default to today's date" },
+          "operatorId": { "type": "string", "description": "SAP user ID from Joule session" }
+        }
+      },
+      "GoodsReceiptResponse": {
+        "type": "object",
+        "properties": {
+          "grDocumentNumber": { "type": "string" },
+          "postingDate": { "type": "string" },
+          "status": { "type": "string" },
+          "nextStep": { "type": "string" }
+        }
+      },
+      "CreatePutawayTasksRequest": {
+        "type": "object",
+        "required": ["warehouseNumber"],
+        "properties": {
+          "warehouseNumber": { "type": "string" }
+        }
+      },
+      "PutawayTasksResponse": {
+        "type": "object",
+        "properties": {
+          "tasksCreated": { "type": "integer" },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "taskNumber": { "type": "string" },
+                "materialNumber": { "type": "string" },
+                "materialDescription": { "type": "string" },
+                "huNumber": { "type": "string" },
+                "sourceBin": { "type": "string" },
+                "destinationBin": { "type": "string" },
+                "quantity": { "type": "number" },
+                "unit": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "ValidateScanRequest": {
+        "type": "object",
+        "required": ["scanValue", "expectedType", "warehouseNumber"],
+        "properties": {
+          "scanValue": { "type": "string" },
+          "expectedType": { "type": "string", "enum": ["BIN", "MATERIAL", "HU", "DELIVERY", "TRANSPORT_UNIT"] },
+          "warehouseNumber": { "type": "string" }
+        }
+      },
+      "ValidateScanResponse": {
+        "type": "object",
+        "properties": {
+          "result": { "type": "string", "enum": ["MATCH", "MISMATCH", "NOT_FOUND"] },
+          "expectedValue": { "type": "string" },
+          "scannedValue": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "ConfirmWarehouseTaskRequest": {
+        "type": "object",
+        "required": ["warehouseNumber", "confirmedQuantity", "destinationBin", "operatorId"],
+        "properties": {
+          "warehouseNumber": { "type": "string" },
+          "confirmedQuantity": { "type": "number" },
+          "destinationBin": { "type": "string" },
+          "operatorId": { "type": "string" }
+        }
+      },
+      "ConfirmWarehouseTaskResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "confirmedQuantity": { "type": "number" },
+          "destinationBin": { "type": "string" },
+          "nextTask": { "type": "string" },
+          "remainingTasks": { "type": "integer" }
+        }
+      },
+      "AnalyseExceptionRequest": {
+        "type": "object",
+        "required": ["exceptionDescription", "deliveryNumber", "warehouseNumber"],
+        "properties": {
+          "exceptionDescription": { "type": "string" },
+          "ewmErrorCode": { "type": "string" },
+          "currentTask": { "type": "string" },
+          "deliveryNumber": { "type": "string" },
+          "warehouseNumber": { "type": "string" }
+        }
+      },
+      "AnalyseExceptionResponse": {
+        "type": "object",
+        "properties": {
+          "exceptionCode": { "type": "string" },
+          "plainLanguageDescription": { "type": "string" },
+          "cause": { "type": "string" },
+          "resolutionOptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rank": { "type": "integer" },
+                "resolutionCode": { "type": "string" },
+                "description": { "type": "string" },
+                "reversible": { "type": "boolean" },
+                "feasibilityScore": { "type": "number" }
+              }
+            }
+          }
+        }
+      },
+      "ExecuteResolutionRequest": {
+        "type": "object",
+        "required": ["resolutionCode", "deliveryNumber", "warehouseNumber", "operatorId"],
+        "properties": {
+          "resolutionCode": { "type": "string" },
+          "resolutionParameters": { "type": "object" },
+          "warehouseTask": { "type": "string" },
+          "deliveryNumber": { "type": "string" },
+          "warehouseNumber": { "type": "string" },
+          "operatorId": { "type": "string" }
+        }
+      },
+      "ExecuteResolutionResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "updatedProcessState": { "type": "string" },
+          "nextAction": { "type": "string" },
+          "details": { "type": "string" }
+        }
+      },
+      "EscalationRequest": {
+        "type": "object",
+        "required": ["escalationReason", "deliveryNumber", "operatorId", "warehouseNumber"],
+        "properties": {
+          "escalationReason": { "type": "string" },
+          "resolutionAttempts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attemptNumber": { "type": "integer" },
+                "resolutionCode": { "type": "string" },
+                "result": { "type": "string" }
+              }
+            }
+          },
+          "deliveryNumber": { "type": "string" },
+          "warehouseTask": { "type": "string" },
+          "operatorId": { "type": "string" },
+          "warehouseNumber": { "type": "string" }
+        }
+      },
+      "EscalationResponse": {
+        "type": "object",
+        "properties": {
+          "escalationId": { "type": "string" },
+          "supervisorNotified": { "type": "boolean" },
+          "notificationChannel": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+apiVersion: solution.sap/v1
+kind: Solution
+metadata:
+  name: inbound-ai-agent-ewm
+  version: 1.0.0
+  description: AI agent that guides warehouse operators through the complete SAP EWM inbound warehouse process using natural language, barcode scanning,
+    and human approval via SAP Joule
+assets:
+  - ref: ./assets/inbound-ewm-agent/asset.yaml

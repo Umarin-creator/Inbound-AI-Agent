@@ -1,0 +1,36 @@
+apiVersion: asset.sap/v1
+kind: Asset
+
+metadata:
+  name: inbound-ewm-agent
+
+type: agent
+
+provides:
+  apis:
+    - name: inbound-ewm-agent
+      kind: a2a
+      ordId: customer.build:apiResource:inbound-ai-agent-ewm.inbound-ewm-agent:v1
+
+container:
+  buildPath: .
+  port: 5000
+
+probes:
+  startup:
+    path: /.well-known/agent.json
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 18
+  liveness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /.well-known/agent.json
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3

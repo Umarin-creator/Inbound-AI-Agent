@@ -1,0 +1,9 @@
+apiVersion: asset.sap/v1
+kind: Asset
+
+type: mcp-translation
+
+metadata:
+  name: ewm-actions
+  version: 1.0.0
+  translation: mcp-translation/translation.json

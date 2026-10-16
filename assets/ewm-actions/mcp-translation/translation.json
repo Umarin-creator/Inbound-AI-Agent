@@ -1,0 +1,58 @@
+{
+  "tools": [
+    {
+      "name": "ewm_read_transport_unit",
+      "path": "/transport-units/{tuIdentifier}",
+      "method": "GET",
+      "description": "Read Transport Unit and list of associated inbound deliveries from EWM"
+    },
+    {
+      "name": "ewm_read_inbound_delivery",
+      "path": "/deliveries/{deliveryNumber}",
+      "method": "GET",
+      "description": "Read full status of an inbound delivery from EWM including items, HUs, and open Warehouse Tasks"
+    },
+    {
+      "name": "ewm_post_goods_receipt",
+      "path": "/deliveries/{deliveryNumber}/goods-receipt",
+      "method": "POST",
+      "description": "Post Goods Receipt for an inbound delivery — requires operator approval AG-01"
+    },
+    {
+      "name": "ewm_create_putaway_tasks",
+      "path": "/deliveries/{deliveryNumber}/putaway-tasks",
+      "method": "POST",
+      "description": "Create Warehouse Tasks for putaway using EWM putaway strategy — requires operator approval AG-02"
+    },
+    {
+      "name": "ewm_validate_scan",
+      "path": "/warehouse-tasks/{warehouseTask}/validate-scan",
+      "method": "POST",
+      "description": "Validate a barcode scan against the expected bin, material, or HU for the current task step"
+    },
+    {
+      "name": "ewm_confirm_warehouse_task",
+      "path": "/warehouse-tasks/{warehouseTask}/confirm",
+      "method": "POST",
+      "description": "Confirm a Warehouse Task in EWM — requires operator approval AG-03 (full) or AG-04 (partial)"
+    },
+    {
+      "name": "ewm_analyse_exception",
+      "path": "/exceptions/analyse",
+      "method": "POST",
+      "description": "Analyse an exception and return ranked resolution options with plain language cause"
+    },
+    {
+      "name": "ewm_execute_exception_resolution",
+      "path": "/exceptions/resolve",
+      "method": "POST",
+      "description": "Execute an operator-approved exception resolution — requires operator approval AG-07"
+    },
+    {
+      "name": "ewm_escalate_to_supervisor",
+      "path": "/escalations",
+      "method": "POST",
+      "description": "Escalate an unresolved exception to the warehouse supervisor — requires operator approval AG-08"
+    }
+  ]
+}

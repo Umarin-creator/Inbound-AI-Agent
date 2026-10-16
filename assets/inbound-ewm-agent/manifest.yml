@@ -1,0 +1,19 @@
+---
+applications:
+  - name: inbound-ewm-agent
+    buildpacks:
+      - python_buildpack
+    instances: 1
+    memory: 512M
+    disk_quota: 1G
+    command: gunicorn --worker-class uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:$PORT --chdir app main:application
+    env:
+      JOULE_RUNTIME: "0"
+      AICORE_RESOURCE_GROUP: "default"
+      AGENT_LLM_MODEL: "gpt-4o"
+      AGENT_SUMMARIZATION_MODEL: "gpt-4o"
+      AGENT_PUBLIC_URL: "https://inbound-ewm-agent.cfapps.us10.hana.ondemand.com/"
+      CORS_ALLOW_ORIGINS: "*"
+    services:
+      - manu-joule-studio-destination-service
+      - aiCore

@@ -1,0 +1,18 @@
+# Joule/Kyma-specific files — excluded from CF push
+requirements-joule.txt
+mcp-mock.json
+asset.yaml
+solution.yaml
+
+# Build and test artefacts
+migration-audit/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local dev
+.env
+.env.*

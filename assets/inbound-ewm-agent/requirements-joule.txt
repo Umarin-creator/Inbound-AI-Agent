@@ -1,0 +1,5 @@
+# Joule/Kyma-specific additions — install alongside requirements.txt on Joule
+litellm==1.91.5
+langchain-litellm==0.7.1
+langchain-mcp-adapters==0.2.2
+sap-cloud-sdk==0.58.5

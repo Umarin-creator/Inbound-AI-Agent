@@ -1,0 +1,169 @@
+{
+  "schema_version": 2,
+  "agent_dir": "assets/inbound-ewm-agent",
+  "state": {
+    "selected_systems": [
+      {
+        "candidate_id": "ewm_cf_api",
+        "destination_name": "EWM_ACTIONS",
+        "proxy_type": "Internet",
+        "on_premise": false,
+        "client_file": "app/ewm_actions_client.py",
+        "tools_file": "app/tools.py",
+        "operations": 9
+      }
+    ],
+    "aicore_destination_name": "aicore",
+    "llm_model_name": "gpt-4o",
+    "runtime_mode": "dual-mode",
+    "joule_gate_env": "JOULE_RUNTIME",
+    "client_strategy": "per-system"
+  },
+  "deploy": {
+    "cf_app_name": "inbound-ewm-agent",
+    "cf_route": "inbound-ewm-agent.cfapps.us10.hana.ondemand.com",
+    "cf_org": "COENAMFGLIVE_manu-joule-studio-7i9npdqq",
+    "cf_space": "SCM_DEV",
+    "cf_stack": "cflinuxfs4",
+    "services_bound": ["manu-joule-studio-destination-service", "aiCore"],
+    "env_vars_set": ["JOULE_RUNTIME", "AICORE_RESOURCE_GROUP", "AGENT_LLM_MODEL", "AGENT_SUMMARIZATION_MODEL"],
+    "deployed_at": "2026-10-16T02:01:52Z",
+    "smoke_test_passed": true,
+    "agent_card_url": "https://inbound-ewm-agent.cfapps.us10.hana.ondemand.com/.well-known/agent.json",
+    "pytest_result": "9/9 passed"
+  },
+  "audit_trail": [
+    {
+      "ts": "2026-10-15T19:10:00Z",
+      "phase": "0.1",
+      "kind": "autonomous_decision",
+      "value": "agent_dir = assets/inbound-ewm-agent"
+    },
+    {
+      "ts": "2026-10-15T19:10:30Z",
+      "phase": "2.2",
+      "kind": "user_answer",
+      "value": "selected systems: ewm_cf_api (EWM_ACTIONS); aicore=aicore; model=gpt-4o"
+    },
+    {
+      "ts": "2026-10-15T19:11:00Z",
+      "phase": "2.3",
+      "kind": "autonomous_decision",
+      "value": "client_strategy = per-system"
+    },
+    {
+      "ts": "2026-10-15T19:11:30Z",
+      "phase": "3.5",
+      "kind": "autonomous_decision",
+      "value": "runtime_mode = dual-mode (default)"
+    },
+    {
+      "ts": "2026-10-15T19:12:00Z",
+      "phase": "3.1",
+      "kind": "file_written",
+      "value": "app/ewm_actions_client.py"
+    },
+    {
+      "ts": "2026-10-15T19:13:00Z",
+      "phase": "3.2",
+      "kind": "file_written",
+      "value": "app/tools.py"
+    },
+    {
+      "ts": "2026-10-15T19:14:00Z",
+      "phase": "3.3",
+      "kind": "file_modified",
+      "value": "app/agent.py — added domain/skill tools in __init__, removed tools= from stream()/invoke(), gated MCP under JOULE_RUNTIME"
+    },
+    {
+      "ts": "2026-10-15T19:15:00Z",
+      "phase": "3.4",
+      "kind": "file_modified",
+      "value": "app/agent_executor.py — removed MCP loading, removed skill_tools, calls stream() without tools="
+    },
+    {
+      "ts": "2026-10-15T19:20:00Z",
+      "phase": "4.1",
+      "kind": "file_written",
+      "value": "app/aicore.py"
+    },
+    {
+      "ts": "2026-10-15T19:21:00Z",
+      "phase": "4.2",
+      "kind": "file_modified",
+      "value": "app/agent.py — gated litellm/sap_cloud_sdk/mcp imports behind JOULE_RUNTIME/ImportError"
+    },
+    {
+      "ts": "2026-10-15T19:22:00Z",
+      "phase": "4.3",
+      "kind": "file_modified",
+      "value": "app/main.py — gated set_aicore_config/JWTContextMiddleware behind JOULE_RUNTIME"
+    },
+    {
+      "ts": "2026-10-15T19:23:00Z",
+      "phase": "4.4",
+      "kind": "file_modified",
+      "value": "requirements.txt — CF-only; requirements-joule.txt created for Joule additions"
+    },
+    {
+      "ts": "2026-10-15T19:24:00Z",
+      "phase": "4.5",
+      "kind": "files_written",
+      "value": "manifest.yml, Procfile, runtime.txt, .cfignore"
+    },
+    {
+      "ts": "2026-10-15T20:25:00Z",
+      "phase": "5.1",
+      "kind": "file_written",
+      "value": "tests/test_ewm_actions_client.py"
+    },
+    {
+      "ts": "2026-10-16T02:03:14Z",
+      "phase": "5.2",
+      "kind": "file_written",
+      "value": "tests/test_tools.py"
+    },
+    {
+      "ts": "2026-10-16T01:40:00Z",
+      "phase": "6.0",
+      "kind": "preflight",
+      "value": "all preflight checks passed: state.json v2, manifest gunicorn command, requirements.txt, pytest 9/9"
+    },
+    {
+      "ts": "2026-10-16T01:40:30Z",
+      "phase": "6.1",
+      "kind": "cf_login",
+      "value": "cf login SSO to COENAMFGLIVE_manu-joule-studio-7i9npdqq / SCM_DEV as ulises.marin@sap.com"
+    },
+    {
+      "ts": "2026-10-16T01:44:28Z",
+      "phase": "6.2",
+      "kind": "cf_push_fix",
+      "value": "fix 1: removed PORT from manifest env (CF reserved); fix 2: langchain bumped to 1.4.6, sap-ai-sdk-gen[all]; fix 3: added aiCore service binding; fix 4: AICORE_RESOURCE_GROUP=default; fix 5: model AGENT_LLM_MODEL=gpt-4o (gen_ai_hub bare name)"
+    },
+    {
+      "ts": "2026-10-16T02:01:52Z",
+      "phase": "6.3",
+      "kind": "cf_push_success",
+      "value": "cf push succeeded — inbound-ewm-agent running 1/1 at inbound-ewm-agent.cfapps.us10.hana.ondemand.com"
+    },
+    {
+      "ts": "2026-10-16T02:02:10Z",
+      "phase": "6.5",
+      "kind": "smoke_test",
+      "value": "agent card /.well-known/agent.json → HTTP 200"
+    },
+    {
+      "ts": "2026-10-16T02:02:35Z",
+      "phase": "6.6",
+      "kind": "smoke_test",
+      "value": "A2A JSON-RPC message/send → HTTP 200, task.status.state=completed, agent replied with EWM inbound greeting"
+    },
+    {
+      "ts": "2026-10-16T02:03:14Z",
+      "phase": "7.0",
+      "kind": "post_checks",
+      "value": "all 9 Phase 7 checks passed: artefacts, dual-mode files, .cfignore, gunicorn command, 1/1 running, agent card 200, JOULE_RUNTIME=0, no Joule deps in requirements.txt, state.json schema v2"
+    }
+  ]
+}
