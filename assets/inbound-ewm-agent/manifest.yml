@@ -10,8 +10,8 @@ applications:
     env:
       JOULE_RUNTIME: "0"
       AICORE_RESOURCE_GROUP: "default"
-      AGENT_LLM_MODEL: "gpt-4o"
-      AGENT_SUMMARIZATION_MODEL: "gpt-4o"
+      AGENT_LLM_MODEL: "claude-sonnet-4-5"
+      AGENT_SUMMARIZATION_MODEL: "claude-sonnet-4-5"
       AGENT_PUBLIC_URL: "https://inbound-ewm-agent.cfapps.us10.hana.ondemand.com/"
       CORS_ALLOW_ORIGINS: "*"
     services:
