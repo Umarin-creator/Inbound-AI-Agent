@@ -14,6 +14,8 @@ applications:
       AGENT_SUMMARIZATION_MODEL: "anthropic--claude-4.8-opus"
       AGENT_PUBLIC_URL: "https://inbound-ewm-agent.cfapps.us10.hana.ondemand.com/"
       CORS_ALLOW_ORIGINS: "*"
+      EWM_ACTIONS_DESTINATION_NAME: "S4H_IDM_400"
+      EWM_ACTIONS_SAP_CLIENT: "400"
     services:
       - manu-joule-studio-destination-service
       - aiCore

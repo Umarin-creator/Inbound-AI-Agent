@@ -65,11 +65,16 @@ def _build_app():
         )
 
         _ui_file = pathlib.Path(__file__).parent.parent / "test-client" / "index.html"
+        _ui_outbound_file = pathlib.Path(__file__).parent.parent / "test-client" / "outbound.html"
 
         async def _ui_handler(request):
             return FileResponse(str(_ui_file), media_type="text/html")
 
+        async def _ui_outbound_handler(request):
+            return FileResponse(str(_ui_outbound_file), media_type="text/html")
+
         app.add_route("/ui", _ui_handler, methods=["GET"])
+        app.add_route("/ui-outbound", _ui_outbound_handler, methods=["GET"])
 
     if _JOULE_RUNTIME:
         class JWTContextMiddleware(BaseHTTPMiddleware):

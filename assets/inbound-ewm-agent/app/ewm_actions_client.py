@@ -2,8 +2,9 @@
 
 Resolves the named BTP Destination at call time (no credential caching) so
 tokens are always fresh.  In local/test mode, set:
-  EWM_ACTIONS_URL   — base URL of the EWM Inbound Actions API
-  EWM_ACTIONS_TOKEN — bearer token to use directly
+  EWM_ACTIONS_URL        — base URL of the EWM Inbound Actions API
+  EWM_ACTIONS_TOKEN      — bearer token to use directly
+  EWM_ACTIONS_SAP_CLIENT — SAP client number (e.g. "400"); sent as sap-client query param
 to bypass the Destination service entirely.
 """
 import json
@@ -16,7 +17,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _ENV_PREFIX = "EWM_ACTIONS"
-_DEFAULT_DESTINATION_NAME = "EWM_ACTIONS"
+_DEFAULT_DESTINATION_NAME = os.environ.get("EWM_ACTIONS_DESTINATION_NAME", "EWM_ACTIONS")
 
 
 def _vcap_services() -> dict:
@@ -52,8 +53,8 @@ async def _fetch_oauth_token(token_url: str, client_id: str, client_secret: str)
         return resp.json()["access_token"]
 
 
-async def _resolve_destination(destination_name: str) -> tuple[str, str]:
-    """Return (base_url, bearer_token) for the named BTP Destination.
+async def _resolve_destination(destination_name: str) -> tuple[str, str, str | None]:
+    """Return (base_url, bearer_token, sap_client) for the named BTP Destination.
 
     Calls the Destination service API to get both the endpoint URL and a
     pre-fetched auth token in a single round trip.
@@ -78,7 +79,9 @@ async def _resolve_destination(destination_name: str) -> tuple[str, str]:
         resp.raise_for_status()
         data = resp.json()
 
-    base_url: str = data.get("destinationConfiguration", {}).get("URL", "").rstrip("/")
+    dest_config: dict = data.get("destinationConfiguration", {})
+    base_url: str = dest_config.get("URL", "").rstrip("/")
+    sap_client: str | None = dest_config.get("sap-client") or None
 
     auth_tokens: list = data.get("authTokens", [])
     if not auth_tokens:
@@ -95,7 +98,7 @@ async def _resolve_destination(destination_name: str) -> tuple[str, str]:
             f"{token_entry['error']}"
         )
 
-    return base_url, token_entry["value"]
+    return base_url, token_entry["value"], sap_client
 
 
 class EwmActionsClient:
@@ -104,17 +107,32 @@ class EwmActionsClient:
     Resolution strategy (checked in order):
       1. EWM_ACTIONS_URL + EWM_ACTIONS_TOKEN env vars (local/test)
       2. BTP Destination service via VCAP_SERVICES (CF production)
+
+    SAP client number is read from EWM_ACTIONS_SAP_CLIENT env var (local) or
+    the destination's sap-client additional property (CF), and sent as
+    the sap-client query parameter on every request.
     """
 
     def __init__(self, destination_name: str = _DEFAULT_DESTINATION_NAME) -> None:
         self._destination_name = destination_name
 
-    async def _base_url_and_token(self) -> tuple[str, str]:
+    async def _base_url_and_token(self) -> tuple[str, str, str | None]:
+        """Return (base_url, bearer_token, sap_client)."""
         env_url = os.environ.get(f"{_ENV_PREFIX}_URL")
         env_token = os.environ.get(f"{_ENV_PREFIX}_TOKEN")
         if env_url and env_token:
-            return env_url.rstrip("/"), env_token
+            sap_client = os.environ.get(f"{_ENV_PREFIX}_SAP_CLIENT") or None
+            return env_url.rstrip("/"), env_token, sap_client
         return await _resolve_destination(self._destination_name)
+
+    def _inject_sap_client(
+        self, params: dict[str, Any] | None, sap_client: str | None
+    ) -> dict[str, Any] | None:
+        if not sap_client:
+            return params
+        result = dict(params) if params else {}
+        result.setdefault("sap-client", sap_client)
+        return result
 
     async def get(
         self,
@@ -122,7 +140,7 @@ class EwmActionsClient:
         params: dict[str, Any] | None = None,
         user_identity: str | None = None,
     ) -> dict[str, Any]:
-        base_url, token = await self._base_url_and_token()
+        base_url, token, sap_client = await self._base_url_and_token()
         headers: dict[str, str] = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
@@ -132,7 +150,7 @@ class EwmActionsClient:
         async with httpx.AsyncClient() as http:
             resp = await http.get(
                 f"{base_url}{path}",
-                params=params,
+                params=self._inject_sap_client(params, sap_client),
                 headers=headers,
                 timeout=30.0,
             )
@@ -145,7 +163,7 @@ class EwmActionsClient:
         body: dict[str, Any] | None = None,
         user_identity: str | None = None,
     ) -> dict[str, Any]:
-        base_url, token = await self._base_url_and_token()
+        base_url, token, sap_client = await self._base_url_and_token()
         headers: dict[str, str] = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -156,6 +174,7 @@ class EwmActionsClient:
         async with httpx.AsyncClient() as http:
             resp = await http.post(
                 f"{base_url}{path}",
+                params=self._inject_sap_client(None, sap_client),
                 json=body,
                 headers=headers,
                 timeout=30.0,
